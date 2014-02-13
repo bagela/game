@@ -90,7 +90,7 @@
       <file leaf-file-name="index.html" pinned="false" current="true" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/index.html">
           <provider selected="true" editor-type-id="text-editor">
-            <state line="93" column="4" selection-start="2269" selection-end="2269" vertical-scroll-proportion="0.75272727" vertical-offset="960" max-vertical-offset="3247">
+            <state line="94" column="33" selection-start="2326" selection-end="2326" vertical-scroll-proportion="0.46424243" vertical-offset="1215" max-vertical-offset="3196">
               <folding />
             </state>
           </provider>
@@ -445,15 +445,15 @@
       <workItem from="1392104759296" duration="5553000" />
       <workItem from="1392113974281" duration="6457000" />
       <workItem from="1392277763906" duration="2885000" />
-      <workItem from="1392297151093" duration="4121000" />
+      <workItem from="1392297151093" duration="4556000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="24929000" />
+    <option name="totallyTimeSpent" value="25364000" />
   </component>
   <component name="ToolWindowManager">
-    <frame x="-4" y="-4" width="1288" height="1002" extended-state="6" />
+    <frame x="-4" y="-4" width="1288" height="1002" extended-state="7" />
     <editor active="true" />
     <layout>
       <window_info id="Palette&#9;" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
@@ -634,7 +634,7 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/index.html">
       <provider selected="true" editor-type-id="text-editor">
-        <state line="93" column="4" selection-start="2269" selection-end="2269" vertical-scroll-proportion="0.75272727" vertical-offset="960" max-vertical-offset="3247">
+        <state line="94" column="33" selection-start="2326" selection-end="2326" vertical-scroll-proportion="0.46424243" vertical-offset="1215" max-vertical-offset="3196">
           <folding />
         </state>
       </provider>
