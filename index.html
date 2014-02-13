@@ -32,19 +32,19 @@ if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
 
 var container;
 var walls = [];
-
+var cylinder = [];
 var camera, scene, renderer;
 
 var mesh;
 
 init();
-//animate();
+animate();
 
 function init() {
 
     container = document.getElementById( 'container' );
 
-    //
+
 
     camera = new THREE.PerspectiveCamera( 27, window.innerWidth / window.innerHeight, 1, 2500 );
     camera.position.z =  1750;
@@ -52,7 +52,7 @@ function init() {
     scene = new THREE.Scene();
     scene.fog = new THREE.Fog( 0x050505, 2000, 3500 );
 
-    //
+
 
     scene.add( new THREE.AmbientLight( 0x444444 ) );
 
@@ -69,7 +69,12 @@ function init() {
 
     var wall_01 = createWall(200,200,200,'textures/walls.jpg');
     walls.push(wall_01);
-    var wall_02
+    var wall_02 = createWall(200,200,200, 'textures/walls.jpg');
+    walls.push(wall_02);
+    var wall_03 = createWall(200,200,200, 'textures/walls.jpg');
+    walls.push(wall_03);
+    var wall_04 = createWall(200,200,200, 'textures/walls.jpg');
+    walls.push(wall_04);
     //TODO create 3 more walls
     //rotate them properly  ( wall_02.rotation.x = Math.PI/2);
 
@@ -77,13 +82,19 @@ function init() {
 
     //TODO create another helper function for other objects
 
-
-
-
-
     for(var i=0; i < walls.length; i++){
         scene.add(walls[i]);
-   }
+    }
+
+    var cylinder_01 = createCylinder(0.8,0.8,4,50,false);
+    var cylinder_02 = createCylinder(0.4,0.4,2,40,false);
+    cylinder.push(cylinder_01);
+    cylinder.push(cylinder_02);
+    scene.add(cylinder_01);
+    scene.add(cylinder_02);
+    cylinder_01.position.x = 200;
+    cylinder_02.position.x = 400;
+
 
 
 
@@ -132,9 +143,9 @@ function createWall(width,height,depth,texture){
 function createCylinder(topRadius, bottomRadius, height, segments, openClose){
 
     var cylinder3D = new THREE.Object3D();
-    var textureCylinder = new THREE.CylinderGeometry(0.8,0.8,4,50,false);
+    var textureCylinder = new THREE.CylinderGeometry(topRadius,bottomRadius,height,segments,openClose);
     var texture = THREE.ImageUtils.loadTexture(texture);
-    var textureMaterial = new THREE.MeshPhongMaterial({color: 0xff0000, specular: 0x111111, map: texture});
+    var textureMaterial = new THREE.MeshPhongMaterial({color: 0x110000, specular: 0x111111, map: texture});
     var textureMesh = new THREE.Mesh(textureCylinder,textureMaterial);
 
     cylinder3D.add(textureMesh);
@@ -155,7 +166,9 @@ function animate() {
 function render() {
 
 //    var time = Date.now() * 0.001;
-
+    walls[0].rotation.x += Math.PI/30;
+    walls[0].rotation.y += Math.PI/90;
+    walls[0].rotation.z += Math.PI/45;
     renderer.render( scene, camera );
 
 }
