@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Game</title>
+    <meta charset="utf-8">
+    <style>
+        body {
+            margin: 0px;
+            background-color: #000000;
+            overflow: hidden;
+        }
+
+    </style>
+</head>
+<body>
+
+<audio id="fruitSound" src="sounds/fruit_sound.mp3"></audio>
+<div id="container"></div>
+
+<script src="js/vendor/three.min.js"></script>
+<script src="js/loaders/ColladaLoader.js"></script>
+<script src="js/ImprovedNoise.js"></script>
+<script src="js/vendor/jquery.js"></script>
+<script src="js/vendor/lodash.js"></script>
+<script src="js/vendor/Maze.js"></script>
+<script src="js/Detector.js"></script>
+
+
+<script>
+
+if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
+
+var container;
+var walls = [];
+
+var camera, scene, renderer;
+
+var mesh;
+
+init();
+//animate();
+
+function init() {
+
+    container = document.getElementById( 'container' );
+
+    //
+
+    camera = new THREE.PerspectiveCamera( 27, window.innerWidth / window.innerHeight, 1, 2500 );
+    camera.position.z =  1750;
+
+    scene = new THREE.Scene();
+    scene.fog = new THREE.Fog( 0x050505, 2000, 3500 );
+
+    //
+
+    scene.add( new THREE.AmbientLight( 0x444444 ) );
+
+
+
+    var light1 = new THREE.DirectionalLight( 0xffffff, 1.5  );
+    light1.position.set( 1, 1, 1 );
+    scene.add( light1 );
+
+    var light2 = new THREE.DirectionalLight( 0xffffff, 1.5 );
+    light2.position.set( 0, -1, 0 );
+    scene.add( light2 );
+
+
+    var wall_01 = createWall(200,200,200,'textures/walls.jpg');
+    walls.push(wall_01);
+
+    //TODO create 3 more walls
+    //rotate them properly  ( wall_02.rotation.x = Math.PI/2);
+
+    //position them properly
+
+    //TODO create another helper function for other objects
+
+
+
+
+
+    for(var i=0; i < walls.length; i++){
+        scene.add(walls[i]);
+   }
+
+
+
+
+
+
+
+    renderer = new THREE.WebGLRenderer( { antialias: false } );
+    renderer.setClearColor( scene.fog.color, 1 );
+    renderer.setSize( window.innerWidth, window.innerHeight );
+
+    renderer.gammaInput = true;
+    renderer.gammaOutput = true;
+
+    container.appendChild( renderer.domElement );
+
+
+    window.addEventListener( 'resize', onWindowResize, false );
+
+}
+
+function onWindowResize() {
+
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+
+    renderer.setSize( window.innerWidth, window.innerHeight );
+
+}
+
+
+function createWall(width,height,depth,texture){
+
+    var wall3D = new THREE.Object3D();
+
+    var textureGeometry = new THREE.CubeGeometry(width, height, depth);
+    var texture = THREE.ImageUtils.loadTexture(texture);
+
+    var textureMaterial = new THREE.MeshPhongMaterial({color: 0xffffff, specular: 0x111111, map: texture });
+    var textureMesh = new THREE.Mesh(textureGeometry, textureMaterial);
+
+    wall3D.add(textureMesh);
+
+
+    return wall3D;
+}
+
+function createCylinder(topRadius, bottomRadius, height, segments, openClose){
+
+    var cylinder3D = new THREE.Object3D();
+    var textureCylinder = new THREE.CylinderGeometry(0.8,0.8,4,50,false);
+    var texture = THREE.ImageUtils.loadTexture(texture);
+    var textureMaterial = new THREE.MeshPhongMaterial({color: 0xff0000, specular: 0x111111, map: texture});
+    var textureMesh = new THREE.Mesh(textureCylinder,textureMaterial);
+
+    cylinder3D.add(textureMesh);
+
+    return cylinder3D;
+}
+
+
+
+function animate() {
+
+    requestAnimationFrame( animate );
+
+    render();
+
+}
+
+function render() {
+
+//    var time = Date.now() * 0.001;
+
+    renderer.render( scene, camera );
+
+}
+
+
+
+
+
+</script>
+
+</body>
+</html>

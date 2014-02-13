@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>three.js webgl - controls - oculus rift</title>
+    <meta charset="utf-8">
+    <style>
+        body {
+            margin: 0px;
+            background-color: #000000;
+            overflow: hidden;
+        }
+
+        #info {
+            position: absolute;
+            top: 0px;
+            width: 100%;
+            color: #ffffff;
+            padding: 5px;
+            font-family: Monospace;
+            font-size: 13px;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        a {
+            color: #ff8800;
+        }
+    </style>
+</head>
+<body>
+
+<audio id="fruitSound" src="sounds/fruit_sound.mp3"></audio>
+<figure id="basic-scene"></figure>
+
+
+<script src="three.min.js"></script>
+<script src="js/loaders/ColladaLoader.js"></script>
+
+<script src="js/ImprovedNoise.js"></script>
+<script src="js/effects/OculusRiftEffect.js"></script>
+<script src="js/controls/FirstPersonControls.js"></script>
+<script src="js/controls/OculusControls.js"></script>
+<script src="jquery-2.0.3.min.js"></script>
+<script src="lodash.js"></script>
+<script src="Maze.js"></script>
+<script>
+
+
+/* Simple JavaScript Inheritance
+ * By John Resig http://ejohn.org/
+ * MIT Licensed.
+ */
+// Inspired by base2 and Prototype
+(function () {
+    var initializing = false, fnTest = /xyz/.test(function () {
+        xyz;
+    }) ? /\b_super\b/ : /.*/;
+
+    // The base Class implementation (does nothing)
+    this.Class = function () {
+    };
+
+    // Create a new Class that inherits from this class
+    Class.extend = function (prop) {
+        var _super = this.prototype;
+
+        // Instantiate a base class (but only create the instance,
+        // don't run the init constructor)
+        initializing = true;
+        var prototype = new this();
+        initializing = false;
+
+        // Copy the properties over onto the new prototype
+        for (var name in prop) {
+            // Check if we're overwriting an existing function
+            prototype[name] = typeof prop[name] == "function" &&
+                    typeof _super[name] == "function" && fnTest.test(prop[name]) ?
+                    (function (name, fn) {
+                        return function () {
+                            var tmp = this._super;
+
+                            // Add a new ._super() method that is the same method
+                            // but on the super-class
+                            this._super = _super[name];
+
+                            // The method only need to be bound temporarily, so we
+                            // remove it when we're done executing
+                            var ret = fn.apply(this, arguments);
+                            this._super = tmp;
+
+                            return ret;
+                        };
+                    })(name, prop[name]) :
+                    prop[name];
+        }
+
+        // The dummy class constructor
+        function Class() {
+            // All construction is actually done in the init method
+            if (!initializing && this.init)
+                this.init.apply(this, arguments);
+        }
+
+        // Populate our constructed prototype object
+        Class.prototype = prototype;
+
+        // Enforce the constructor to be what we expect
+        Class.prototype.constructor = Class;
+
+        // And make this class extendable
+        Class.extend = arguments.callee;
+
+        return Class;
+    };
+})();
+
+
+var basicScene,dae,skin;
+
+var jumping = false;
+var jumpTimer = 0, jumpTime = 60, jumpSpeed = 4;
+
+var miniMap;
+
+var BasicScene = Class.extend({
+    // Class constructor
+    init: function () {
+        'use strict';
+        // Create a scene, a camera, a light and a WebGL renderer with Three.JS
+        this.scene = new THREE.Scene();
+        this.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 20000);
+        this.scene.add(this.camera);
+
+
+        this.renderer = new THREE.WebGLRenderer();
+//        this.renderer.shadowMapEnabled = true;
+//        this.renderer.shadowMapSoft = true;
+        // Define the container for the renderer
+
+        this.effect = new THREE.OculusRiftEffect(this.renderer, { worldScale: 1 });
+        this.effect.setSize(window.innerWidth, window.innerHeight);
+
+        this.oculuscontrol = new THREE.OculusControls(this.camera);
+        this.oculuscontrol.connect();
+
+        this.container = jQuery('#basic-scene');
+        // Create the user's character
+        this.user = new Character({
+            color: 0xff7900
+        });
+
+
+        this.scene.add(this.user.mesh);
+        // Create the "world" : a 3D representation of the place we'll be putting our character in
+        this.world = new World({
+            color: 0xF5F5F5
+        });
+
+
+
+        for (var i =0; i< this.world.boxes.length;i++) {
+            if(this.world.boxes[i] != undefined){
+
+                this.scene.add(this.world.boxes[i]);
+            }
+            this.scene.add(this.world.boxesTextures[i]);
+        }
+
+        var context = this;
+
+
+        this.fruit1 = this.world.addModel('models/fruit_01.dae',20)
+        this.fruit2 = this.world.addModel('models/fruit_02.dae',20)
+        this.fruit3 = this.world.addModel('models/fruit_03.dae',20)
+        this.fruit4 = this.world.addModel('models/fruit_04.dae',20)
+
+
+
+        this.mushroom = this.world.addModel('models/fruit_01.dae', 30);
+        this.mushroom.position.z = this.world.boxSize;
+        this.mushroom.position.y = 30;
+        this.mushroom.position.x = this.world.boxSize*2;
+        this.scene.add(this.mushroom);
+
+        var pos1 = []
+        var pos2 = []
+        var pos3 = []
+        var pos4 = []
+
+
+        // Set i for more iterations
+        var bonusPerColumn = 20;
+//        for(i = 0; i<bonusCount; i++){
+//            console.log(this.world.pathArray[i]);
+//        }
+//        _.each(this.world.pathArray, function(item){
+//
+//            if(item.y >1 && item.y <= 4){
+//                pos1.push(item);
+//            }
+//            if(item.y >4 && item.y <= 8){
+//                pos2.push(item);
+//            }
+//            if(item.y >8 && item.y <= 12){
+//                pos3.push(item);
+//                console.log(pos3)
+//            }
+//
+//            if(item.y >12 && item.y <= 16){
+//                pos4.push(item);
+//            }
+//        })
+
+//        var context = this;
+//        setTimeout(function() {
+//            var fruitPos1 = pos1[context.getRandomInt(0,pos1.length)];
+//            pos1.splice(pos1.indexOf(fruitPos1), 1);
+
+
+//            context.fruit1.position.x = context.world.boxSize * fruitPos1.x;
+//            context.fruit1.position.z = context.world.boxSize * fruitPos1.y;
+
+
+        this.scene.add(this.world.ground);
+
+        this.scene.add(this.world.startPoint);
+        this.scene.add(this.world.endPoint);
+
+
+        for (var i =0; i< this.world.walls.length;i++) {
+            this.scene.add(this.world.walls[i]);
+        }
+
+
+        this.light = new THREE.PointLight();
+        this.light.position.set(-256, 256, -256);
+        this.scene.add(this.light);
+
+
+        this.light= new THREE.DirectionalLight(0xffffff);
+        this.light.position.set(0, 5, 5);
+        this.light.target.position.set(0, 0, 0);
+
+// these six values define the boundaries of the yellow box seen above
+        this.light.shadowCameraNear = 2;
+        this.light.shadowCameraFar = 5;
+        this.light.shadowCameraLeft = -0.5;
+        this.light.shadowCameraRight = 0.5;
+        this.light.shadowCameraTop = 0.5;
+        this.light.shadowCameraBottom = -0.5;
+        this.scene.add(this.light);
+
+
+
+
+
+        miniMap = new THREE.OrthographicCamera(
+                window.innerWidth / -2,		// Left
+                window.innerWidth / 2,		// Right
+                window.innerHeight / 2,		// Top
+                window.innerHeight / -2,	// Bottom
+                -5000,            			// Near
+                5000 );           			// Far
+        miniMap.up = new THREE.Vector3(0,0,-1);
+        miniMap.lookAt( new THREE.Vector3(0,0,-1) );
+        this.scene.add(miniMap);
+
+
+        var light = new THREE.AmbientLight( 0x404040 ); // soft white light
+        this.scene.add( light );
+
+        //Helper objects
+
+
+
+
+
+
+        // Define the size of the renderer
+        this.setAspect();
+
+
+        // Insert the renderer in the container
+        this.container.prepend(this.renderer.domElement);
+        // Set the camera to look at our user's character
+        this.setControls();
+
+
+        this.clock = new THREE.Clock();
+
+        this.setFocus(this.user.mesh,this.user.controls, this.clock);
+
+    },
+    // Event handlers
+    setControls: function () {
+        'use strict';
+        // Within jQuery's methods, we won't be able to access "this"
+        var user = this.user,
+        // State of the different controls
+                controls = {
+                    left: false,
+                    up: false,
+                    right: false,
+                    down: false
+                };
+        // When the user presses a key
+        jQuery(document).keydown(function (e) {
+            var prevent = true;
+            // Update the state of the attached control to "true"
+            switch (e.keyCode) {
+                case 37:
+                    controls.left = true;
+                    break;
+                case 38:
+                    controls.up = true;
+                    break;
+                case 39:
+                    controls.right = true;
+                    break;
+                case 40:
+                    controls.down = true;
+                    break;
+                case 32:
+                    jumping = true;
+                    break;
+                default:
+                    prevent = false;
+            }
+            // Avoid the browser to react unexpectedly
+            if (prevent) {
+                e.preventDefault();
+            } else {
+                return;
+            }
+            // Update the character's direction
+            user.setDirection(controls);
+        });
+        // When the user releases a key
+        jQuery(document).keyup(function (e) {
+            var prevent = true;
+            // Update the state of the attached control to "false"
+            switch (e.keyCode) {
+                case 37:
+                    controls.left = false;
+                    break;
+                case 38:
+                    controls.up = false;
+                    break;
+                case 39:
+                    controls.right = false;
+                    break;
+                case 40:
+                    controls.down = false;
+                    break;
+                default:
+                    prevent = false;
+            }
+            // Avoid the browser to react unexpectedly
+            if (prevent) {
+                e.preventDefault();
+            } else {
+                return;
+            }
+            // Update the character's direction
+            user.setDirection(controls);
+        });
+        // On resize
+        jQuery(window).resize(function () {
+            // Redefine the size of the renderer
+            basicScene.setAspect();
+        });
+    },
+    // Defining the renderer's size
+    setAspect: function () {
+        'use strict';
+        // Fit the container's full width
+        var w = this.container.width(),
+        // Fit the initial visible area's height
+                h = jQuery(window).height() - this.container.offset().top;
+        // Update the renderer and the camera
+        this.renderer.setSize(w, h);
+        this.camera.aspect = w / h;
+        this.camera.updateProjectionMatrix();
+    },
+
+
+
+
+    // Updating the camera to follow and look at a given Object3D / Mesh
+    setFocus: function (object,controls, delta) {
+        'use strict';
+
+        this.camera.position.set(object.position.x, object.position.y + 850, object.position.z - 500);
+//        this.camera.rotation.set(object.rotation.x, object.rotation.y , object.rotation.z );
+        miniMap.position.set(object.position.x, object.position.y + 500, object.position.z);
+        miniMap.lookAt(object.position);
+        miniMap.rotation.z = Math.PI;
+
+        this.camera.lookAt(object.position);
+        // this.camera.rotation.z = Math.PI/2;
+
+
+//        var moveDistance = 200 * delta; // 200 pixels per second
+//        var rotateAngle = Math.PI / 2 * delta;   // pi/2 radians (90 degrees) per second
+//
+//        if(controls != undefined){
+//            if ( controls.left )
+//                this.camera.rotateOnAxis( new THREE.Vector3(0,1,0).normalize(), rotateAngle);
+//            if ( controls.right )
+//                this.camera.rotateOnAxis( new THREE.Vector3(0,1,0).normalize(), -rotateAngle);
+//        }
+
+        if (jumping){
+            console.log('jump');
+//            object.rotateOnAxis( new THREE.Vector3(1,0,0).normalize(), this.degInRad(7));
+
+
+            jumpTimer++;
+            if(jumpTimer<jumpTime/2){
+                object.position.y += 3;
+            }
+            if(jumpTimer>jumpTime/2 && jumpTimer < jumpTime){
+                object.position.y -= jumpSpeed;
+                if(object.position.y<50){
+                    object.position.y = 50;
+                }
+            }
+            if(jumpTimer>=jumpTime){
+                jumping = false;
+                jumpTimer = 0;
+
+            }
+
+        }
+
+
+        //  var delta = this.clock.getDelta()
+        //var moveDistance = 1000 * delta; // 200 pixels per second
+        // var rotateAngle = Math.PI / 2 * delta;
+        // object.rotateOnAxis( new THREE.Vector3(0,1,0).normalize(), rotateAngle);
+
+        // We update our Object3D's position from our "direction"
+
+
+
+
+
+
+
+
+    }  ,radInDeg : function(rad){
+
+        return rad * (180 / Math.PI);
+
+    } ,degInRad : function(deg){
+
+        return deg * Math.PI / 180;
+
+
+    },
+    getRandomInt:function (min, max) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    ,
+
+
+    // Update and draw the scene
+    frame: function () {
+        'use strict';
+        // Run a new step of the user's motions
+        this.user.motion();
+
+        var delta = this.clock.getDelta();
+
+        // Set the camera to look at our user's character
+        this.setFocus(this.user.mesh,this.user.controls, delta);
+        // And draw !
+
+
+
+        var w = window.innerWidth, h = window.innerHeight;
+
+        // setViewport parameters:
+        //  lower_left_x, lower_left_y, viewport_width, viewport_height
+        this.renderer.setViewport( 0, 0, w, h );
+        this.renderer.clear();
+
+        // full display
+        // renderer.setViewport( 0, 0, SCREEN_WIDTH - 2, 0.5 * SCREEN_HEIGHT - 2 );
+        this.renderer.render(this.scene, this.camera);
+
+        // minimap (overhead orthogonal camera)
+        //  lower_left_x, lower_left_y, viewport_width, viewport_height
+        this.renderer.setViewport( 0,0, w*0.2, h*0.2 );
+        this.renderer.render( this.scene, miniMap );
+
+
+
+
+        this.oculuscontrol.update(delta);
+
+
+    }
+});
+
+
+var World = Class.extend({
+    // Class constructor
+    init: function (args) {
+        'use strict';
+        // Set boxSize . Set mazeSize
+        this.mazeSize = 3;
+        this.boxSize = 300;
+        this.obstacles = new Array();
+        this.fruits = new Array();
+
+        this.createWallsAndGround(this.mazeSize*2 +1,this.boxSize);
+
+        this.createMaze(this.mazeSize, this.boxSize, this);
+
+
+        this.createHelpers(this.mazeSize*2 + 1, this.boxSize);
+
+
+
+
+    }, createMaze: function (mazeSize,boxSize, world) {
+
+        var m = new Maze(mazeSize, mazeSize, 1);
+
+
+        this.mazeArray = new Array(mazeSize);
+        this.mazeArray[0] = new Array(mazeSize);
+        this.boxes = new Array(mazeSize * mazeSize);
+        this.boxesTextures = new Array(mazeSize * mazeSize);
+        var html = $(m.toHTML());
+        var rows = html.find('.r');
+
+        var gridObj = {}
+        for (var y = 0; y < rows.length; y++) {
+            gridObj['col'+y] = []
+            var columns = $(rows[y]).children();
+
+            for (var x = 0; x < columns.length; x++) {
+
+                if ($(columns[x]).hasClass("w")) {
+                    this.mazeArray[y, x] = 1;
+                    gridObj['col'+y].push(1);
+                    var box = this.createBox(boxSize, boxSize, boxSize, 'textures/crate.gif');
+
+
+                    box[1].position.x = boxSize * x;
+                    box[1].position.y = boxSize/2;
+                    box[1].position.z = boxSize * y;
+
+
+
+                    var treeModel = world.addModel('models/tree_01.dae', 40);
+                    treeModel.position.x = boxSize * x;
+                    treeModel.position.z = boxSize * y;
+
+                    this.boxesTextures.push(treeModel);
+                    this.boxes.push(box[0]);
+                    this.obstacles.push(box[1]);
+
+                } else {
+                    this.mazeArray[y, x] = 0;
+                    gridObj['col'+y].push(0);
+                }
+
+            }
+        }
+
+        console.log(JSON.stringify(gridObj))
+
+    }, createBox: function (width, height, depth, texture) {
+
+
+
+        var geometry = new THREE.CubeGeometry(width, height, depth);
+
+        var texture = THREE.ImageUtils.loadTexture(texture);
+
+
+        var material = new THREE.MeshPhongMaterial({ color: 0x0000ff, transparent:true, opacity:0});
+
+
+
+        var object3D = new THREE.Object3D();
+
+
+
+
+
+        var om = new Array(3);
+
+        mesh = new THREE.Mesh(geometry, material);
+        object3D.add(mesh);
+
+
+
+
+        om[0] = object3D;
+        om[1] = mesh;
+        return om;
+
+    },
+    addModel: function (model, scale) {
+
+
+        var loader = new THREE.ColladaLoader();
+        var context = this;
+        var fruit = new THREE.Object3D();
+        fruit.name = "fruit";
+        loader.options.convertUpAxis = true;
+        loader.load( model, function ( collada ) {
+
+            dae = collada.scene;
+            skin = collada.skins[ 0 ];
+
+            dae.scale.x = dae.scale.y = dae.scale.z = scale;
+            dae.updateMatrix();
+
+            var geometry = new THREE.CubeGeometry(context.boxSize, context.boxSize, context.boxSize);
+            var material = new THREE.MeshPhongMaterial({ color: 0x0000ff, transparent:true, opacity:0});
+
+            var fruitMesh = new THREE.Mesh(geometry, material);
+            fruitMesh.position.y = context.boxSize/2;
+            fruit.add(fruitMesh);
+            fruit.add(dae);
+            context.fruits.push(fruitMesh);
+        } );
+
+
+        return fruit;
+
+    },
+
+    createTextures: function(width,height,depth,texture){
+        // from 1-4
+        var randomizer = Math.ceil(Math.random() * (4 - 1 + 1)) + 1
+        if(randomizer == 1 )
+        {
+            //texture
+        }
+        if(randomizer == 2 )
+        {
+            //texture
+        }
+        if(randomizer == 3 )
+        {
+            //texture
+        }
+        if(randomizer == 4 )
+        {
+            //texture
+        }
+
+        var textureHeight = randomizer*height/4;
+        var texture3D = new THREE.Object3D();
+        var textureGeometry = new THREE.CubeGeometry(width, textureHeight, depth);
+        var texture = THREE.ImageUtils.loadTexture(texture);
+
+        console.log(randomizer*height)
+        var textureMaterial = new THREE.MeshPhongMaterial({color: 0xffffff, specular: 0x111111, map: texture });
+        var textureMesh = new THREE.Mesh(textureGeometry, textureMaterial);
+
+        texture3D.add(textureMesh)
+        texture3D.position.y = textureHeight/2;
+
+        return texture3D;
+    },
+
+
+    createHelpers: function(mazeSize, boxSize){
+
+        var startPoint = new THREE.CylinderGeometry(boxSize*0.5, boxSize*0.5, boxSize, boxSize*0.5, 10);
+
+        var material = new THREE.MeshLambertMaterial( {color: 0x000099, transparent: true, opacity:0.4} );
+
+        this.startPoint = new THREE.Mesh(startPoint, material);
+        this.startPoint.position.x =   0;
+        this.startPoint.position.z =   boxSize;
+        this.startPoint.position.y =   boxSize/2;
+
+        var endPoint = new THREE.CylinderGeometry(boxSize*0.5, boxSize*0.5, boxSize, boxSize*0.5, 10);
+
+        material = new THREE.MeshLambertMaterial( {color: 0x009900, transparent: true, opacity:0.4} );
+
+        this.endPoint = new THREE.Mesh(endPoint, material);
+        this.endPoint.position.x =   (mazeSize-1)*boxSize;
+        this.endPoint.position.z =   (mazeSize-2)*boxSize;
+        this.endPoint.position.y =    boxSize/2;
+
+
+    },
+
+    createWallsAndGround: function(mazeSize,boxSize) {
+
+
+        // ground
+
+        var initColor = new THREE.Color( 0x7cac3e );
+        var initTexture = THREE.ImageUtils.generateDataTexture( 1, 1, initColor );
+
+        var groundMaterial = new THREE.MeshPhongMaterial( { color: 0xffffff, specular: 0x111111, map: initTexture } );
+
+        var groundTexture = THREE.ImageUtils.loadTexture( "textures/path_01.jpg", undefined, function() { groundMaterial.map = groundTexture } );
+        groundTexture.wrapS = groundTexture.wrapT = THREE.RepeatWrapping;
+        groundTexture.repeat.set( mazeSize, mazeSize);
+        groundTexture.anisotropy = 16;
+
+
+        var ground = new THREE.PlaneGeometry(mazeSize*boxSize, mazeSize*boxSize);
+
+        var walls = [
+            new THREE.CubeGeometry(mazeSize*boxSize, boxSize*2, boxSize),
+            new THREE.CubeGeometry(mazeSize*boxSize, boxSize*2, boxSize),
+            new THREE.CubeGeometry(mazeSize*boxSize, boxSize*2, boxSize),
+            new THREE.CubeGeometry(mazeSize*boxSize, boxSize*2, boxSize)
+        ]
+
+
+
+
+        this.ground = new THREE.Mesh(ground, groundMaterial);
+        this.ground.position.x =   mazeSize/2 * boxSize - boxSize*0.5;
+        this.ground.position.z =   mazeSize/2 * boxSize - boxSize*0.5;
+
+        this.ground.rotation.x = -Math.PI / 2;
+        this.ground.receiveShadow = true;
+        this.obstacles.push(this.ground);
+
+        material = new THREE.MeshLambertMaterial({ color: 0x333 });
+
+        this.walls = [];
+
+        for (var i = 0; i < walls.length; i += 1) {
+            this.walls[i] = new THREE.Mesh(walls[i], material);
+            this.walls[i].position.y = boxSize / 2;
+            this.obstacles.push(this.walls[i]);
+
+
+        }
+        this.walls[0].rotation.y = 0;
+        this.walls[0].position.z = -boxSize;
+        this.walls[0].position.x = ground.width / 2 -boxSize/2;
+
+        this.walls[1].rotation.y = 0;
+        this.walls[1].position.z = ground.height;
+        this.walls[1].position.x = ground.width / 2 -boxSize/2;
+
+        this.walls[2].rotation.y = Math.PI / 2;
+        this.walls[2].position.x = -boxSize;
+        this.walls[2].position.z = ground.height/2 -boxSize/2;
+
+
+        this.walls[3].rotation.y = Math.PI / 2;
+        this.walls[3].position.x = ground.width;
+        this.walls[3].position.z = ground.height/2 -boxSize/2 ;
+
+
+
+
+
+
+
+
+
+
+
+
+    },
+
+    getObstacles: function () {
+        'use strict';
+        return this.obstacles;
+    },
+    getFruits: function(){
+        return this.fruits;
+    }
+
+});
+
+
+var Character = Class.extend({
+    // Class constructor
+    init: function (args) {
+        'use strict';
+        // Set the different geometries composing the humanoid
+        var head = new THREE.SphereGeometry(32, 20, 20),
+                hand = new THREE.SphereGeometry(8, 4, 4),
+                foot = new THREE.SphereGeometry(10, 20, 20, 0, Math.PI * 2, 0, Math.PI / 2),
+                nose = new THREE.SphereGeometry(4, 4, 4),
+        // Set the material, the "skin"
+                material = new THREE.MeshPhongMaterial(args);
+        // Set the character modelisation object
+        this.mesh = new THREE.Object3D();
+        // this.mesh.scale.x = this.mesh.scale.y = this.mesh.scale.z = 0.5;
+        this.mesh.position.y = 48;
+        this.mesh.position.z = 200;
+        // Set and add its head
+
+        var texture = THREE.ImageUtils.loadTexture('textures/head.jpg');
+
+        var headMaterial = new THREE.MeshPhongMaterial({color: 0xffffff, specular: 0x111111, map: texture });
+
+
+        this.head = new THREE.Mesh(head, headMaterial);
+        this.head.position.y = 0;
+
+        this.mesh.add(this.head);
+        // Set and add its hands
+
+
+
+        this.hands = {
+            left: new THREE.Mesh(hand, material),
+            right: new THREE.Mesh(hand, material)
+        };
+        this.hands.left.position.x = -40;
+        this.hands.left.position.y = -8;
+        this.hands.right.position.x = 40;
+        this.hands.right.position.y = -8;
+        this.mesh.add(this.hands.left);
+        this.mesh.add(this.hands.right);
+        // Set and add its feet
+        this.feet = {
+            left: new THREE.Mesh(foot, material),
+            right: new THREE.Mesh(foot, material)
+        };
+        this.feet.left.scale.y = this.feet.right.scale.y = 3;
+        this.feet.left.position.x = -20;
+        this.feet.left.position.y = -48;
+        this.feet.left.rotation.y = Math.PI / 4;
+        this.feet.right.position.x = 20;
+        this.feet.right.position.y = -48;
+        this.feet.right.rotation.y = Math.PI / 4;
+        this.mesh.add(this.feet.left);
+        this.mesh.add(this.feet.right);
+        // Set and add its nose
+        this.nose = new THREE.Mesh(nose, material);
+        this.nose.position.y = 0;
+        this.nose.position.z = 32;
+        this.mesh.add(this.nose);
+        // Set the vector of the current motion
+        this.direction = new THREE.Vector3(0, 0, 0);
+        // Set the current animation step
+        this.step = 0;
+
+
+        this.rays = [
+            new THREE.Vector3(0, 0, 1),
+            new THREE.Vector3(1, 0, 1),
+            new THREE.Vector3(1, 0, 0),
+            new THREE.Vector3(1, 0, -1),
+            new THREE.Vector3(0, 0, -1),
+            new THREE.Vector3(-1, 0, -1),
+            new THREE.Vector3(-1, 0, 0),
+            new THREE.Vector3(-1, 0, 1)
+        ];
+
+
+        this.caster = new THREE.Raycaster();
+    }, collision: function () {
+        'use strict';
+        var collisions, i,
+        // Maximum distance from the origin before we consider collision
+                distance = 32,
+        // Get the obstacles array from our world
+                obstacles = basicScene.world.getObstacles();
+        // For each ray
+        for (i = 0; i < this.rays.length; i += 1) {
+            // We reset the raycaster to this direction
+            this.caster.set(this.mesh.position, this.rays[i]);
+            // Test if we intersect with any obstacle mesh
+            collisions = this.caster.intersectObjects(obstacles);
+            // And disable that direction if we do
+            if (collisions.length > 0 && collisions[0].distance <= distance) {
+
+                // Yep, this.rays[i] gives us : 0 => up, 1 => up-left, 2 => left, ...
+                if ((i === 0 || i === 1 || i === 7) && this.direction.z === 1) {
+                    this.direction.setZ(0);
+                } else if ((i === 3 || i === 4 || i === 5) && this.direction.z === -1) {
+                    this.direction.setZ(0);
+                }
+                if ((i === 1 || i === 2 || i === 3) && this.direction.x === 1) {
+                    this.direction.setX(0);
+                } else if ((i === 5 || i === 6 || i === 7) && this.direction.x === -1) {
+                    this.direction.setX(0);
+                }
+            }
+        }
+
+        var fruitDistance = 10;
+        var fruits = basicScene.world.getFruits();
+        //console.log(fruits);
+        for (i = 0; i < this.rays.length; i += 1) {
+            // We reset the raycaster to this direction
+            this.caster.set(this.mesh.position, this.rays[i]);
+            // Test if we intersect with any obstacle mesh
+            collisions = this.caster.intersectObjects(fruits);
+            // And disable that direction if we do
+            if (collisions.length > 0 && collisions[0].distance <= fruitDistance) {
+
+                fruits.splice(fruits.indexOf(collisions[0].object), 1);
+                document.getElementById("fruitSound").play()
+                basicScene.scene.remove( collisions[0].object.parent);
+            }
+        }
+
+    },
+    // Update the direction of the current motion
+    setDirection: function (controls) {
+        'use strict';
+        // Either left or right, and either up or down (no jump or dive (on the Y axis), so far ...)
+        var x = controls.left ? 1 : controls.right ? -1 : 0,
+                y = 0,
+                z = controls.up ? 1 : controls.down ? -1 : 0;
+        this.direction.set(x, y, z);
+        this.controls = controls;
+    },
+    // Process the character motions
+    motion: function () {
+        'use strict';
+
+        // Update the directions if we intersect with an obstacle
+        this.collision();
+        // If we're not static
+        if (this.direction.x !== 0 || this.direction.z !== 0) {
+            // Rotate the character
+            this.rotate();
+            // Move the character
+            this.move();
+            return true;
+        }
+    },
+    // Rotate the character
+    rotate: function () {
+        'use strict';
+        // Set the direction's angle, and the difference between it and our Object3D's current rotation
+        var angle = Math.atan2(this.direction.x, this.direction.z),
+                difference = angle - this.mesh.rotation.y;
+        // If we're doing more than a 180°
+        if (Math.abs(difference) > Math.PI) {
+            // We proceed to a direct 360° rotation in the opposite way
+            if (difference > 0) {
+                this.mesh.rotation.y += 2 * Math.PI;
+            } else {
+                this.mesh.rotation.y -= 2 * Math.PI;
+            }
+            // And we set a new smarter (because shorter) difference
+            difference = angle - this.mesh.rotation.y;
+            // In short : we make sure not to turn "left" to go "right"
+        }
+        // Now if we haven't reached our target angle
+        if (difference !== 0) {
+            // We slightly get closer to it
+            this.mesh.rotation.y += difference / 4;
+        }
+    },
+
+    move: function () {
+        'use strict';
+        // We update our Object3D's position from our "direction"
+        this.mesh.position.x += this.direction.x * ((this.direction.z === 0) ? 4 : Math.sqrt(8));
+        this.mesh.position.z += this.direction.z * ((this.direction.x === 0) ? 4 : Math.sqrt(8));
+        // Now let's use Sine and Cosine curves, using our "step" property ...
+        this.step += 1 / 4;
+        // ... to slightly move our feet and hands
+        this.feet.left.position.setZ(Math.sin(this.step) * 16);
+        this.feet.right.position.setZ(Math.cos(this.step + (Math.PI / 2)) * 16);
+        this.hands.left.position.setZ(Math.cos(this.step + (Math.PI / 2)) * 8);
+        this.hands.right.position.setZ(Math.sin(this.step) * 8);
+    }
+});
+
+
+basicScene = new BasicScene();
+
+function animate() {
+    requestAnimationFrame(animate);
+    basicScene.frame();
+}
+
+
+animate();
+
+
+</script>
+
+</body>
+</html>

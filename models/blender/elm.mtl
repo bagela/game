@@ -1,0 +1,35 @@
+# Blender MTL File: 'elm.blend'
+# Material Count: 3
+
+newmtl bark
+Ns 96.078431
+Ka 0.000000 0.000000 0.000000
+Kd 0.210599 0.158501 0.078660
+Ks 0.000000 0.000000 0.000000
+Ni 1.000000
+d 1.000000
+illum 1
+map_Bump \\home\\yorik\\Documents\\Site\\tutorials\\images\\bark.jpg
+map_Kd \\home\\yorik\\Documents\\Site\\tutorials\\images\\bark.jpg
+
+newmtl layer01
+Ns 96.078431
+Ka 0.000000 0.000000 0.000000
+Kd 0.164329 0.454749 0.056417
+Ks 0.000000 0.000000 0.000000
+Ni 1.000000
+d 0.000000
+illum 1
+map_Kd \\home\\yorik\\Documents\\Site\\tutorials\\images\\leave01.png
+map_d \\home\\yorik\\Documents\\Site\\tutorials\\images\\leave01.png
+
+newmtl layer02
+Ns 96.078431
+Ka 0.000000 0.000000 0.000000
+Kd 0.389127 0.743933 0.000000
+Ks 0.000000 0.000000 0.000000
+Ni 1.000000
+d 0.000000
+illum 1
+map_Kd \\home\\yorik\\Documents\\Site\\tutorials\\images\\leave02.png
+map_d \\home\\yorik\\Documents\\Site\\tutorials\\images\\leave02.png
